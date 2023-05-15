@@ -62,11 +62,16 @@ contract EventBooking {
 
     // Modifier to check if the caller is the artist for the event
     modifier onlyEventArtist(uint256 _eventId) {
-        console.log("msg sender: %s , artist: %s ",  msg.sender , events[_eventId].artist, _eventId);
-        require(
-            events[_eventId].artist == msg.sender,
-            "Caller is not event artist"
+        console.log(
+            "msg sender: %s , artist: %s ",
+            msg.sender,
+            events[_eventId].artist,
+            _eventId
         );
+        // require(
+        //     events[_eventId].artist == msg.sender,
+        //     "Caller is not event artist"
+        // );
         _;
     }
 
@@ -93,7 +98,11 @@ contract EventBooking {
         uint256 _executiveSeatPrice,
         uint256 _premiumSeatPrice
     ) external payable {
-        console.log("msg value: %n , advancePayment: %n ",  msg.value , advancePayment);
+        console.log(
+            "msg value: %n , advancePayment: %n ",
+            msg.value,
+            advancePayment
+        );
         require(
             msg.value == advancePayment,
             "Invalid advance payment amount is 0.001 ETH"
@@ -217,18 +226,27 @@ contract EventBooking {
             seatType = SeatType.PREMIUM;
         }
 
+        console.log("Seats Booked: ", seatsBooked);
+        console.log("Seating Capacity: ", seatingCapacity);
+
         require(seatsBooked < seatingCapacity, "All Seats are booked");
+
+        console.log("Seat Buyer: ", seatBuyers[_eventId][_ticketId].buyer);
+        console.log("Seat already bought?: ", address(0));
         require(
             seatBuyers[_eventId][_ticketId].buyer == address(0),
             "Seat already booked"
         );
+
+        console.log("Seat booking Value passed: ", msg.value);
+        console.log("Ticket Price: ", eventTicketPrice[_eventId][seatType]);
         require(
             msg.value == eventTicketPrice[_eventId][seatType],
             "Invalid payment amount"
         );
 
         // Transfer Ether to the theatre owner
-        theatreOwner.transfer(msg.value);
+        // theatreOwner.transfer(msg.value);
 
         // Mint an NFT as a ticket for the seat
         // ticketERC721.safeMint(msg.sender, _ticketId);
@@ -249,32 +267,47 @@ contract EventBooking {
     function transferTicket(
         uint256 _eventId,
         uint256 _ticketId,
-        address _to,
+        address payable _to,
         uint256 amount
-    ) external {
+    ) external payable {
+        console.log("Seat Owner: ", ticketERC721.ownerOf(_ticketId));
+        console.log("msg.sender: ", msg.sender);
         require(
             ticketERC721.ownerOf(_ticketId) == msg.sender,
             "Caller is not the owner of the ticket"
         );
-        require(ticketERC721.ownerOf(_ticketId) != _to, "Cannot transfer ticket to self");
+
+        console.log("Transferring to: ", _to);
+        require(
+            ticketERC721.ownerOf(_ticketId) != _to,
+            "Cannot transfer ticket to self"
+        );
 
         require(
             !events[_eventId].canceled,
             "Cannot transfer ticket for a canceled event"
         );
+
         SeatType seatType = seatBuyers[_eventId][_ticketId].seatType;
 
+        console.log("Amount: ", amount);
+        console.log("Ticket price: ", eventTicketPrice[_eventId][seatType]);
         require(
             amount <= eventTicketPrice[_eventId][seatType],
             "Ticket cannot be sold at a higher price, please enter a valid amount"
         );
-        // address payable ticketOwner = payable(msg.sender);
 
-        // Transfer amount from recepient to prev owner
-        // ticketERC721._transfer(_to, ticketOwner, amount);
-        // Transfer the ticket NFT to the new owner
-        // ticketERC721._transfer(msg.sender, _to, _ticketId);
+        // Transfer the specified amount from _to to msg.sender
+        (bool success, ) = _to.call{value: amount}("");
+        require(success, "Transfer failed");
 
+        // Transfer the ticket NFT from msg.sender to _to
+        ticketERC721.safeTransferFrom(msg.sender, _to, _ticketId);
+
+        seatBuyers[_eventId][_ticketId].buyer = _to;
+        emit TicketTransferred(msg.sender, _to, _eventId, _ticketId);
+
+        seatBuyers[_eventId][_ticketId].buyer = _to;
         emit TicketTransferred(msg.sender, _to, _eventId, _ticketId);
     }
 
@@ -297,3 +330,5 @@ contract EventBooking {
         emit AttendanceMarked(msg.sender, _eventId, _ticketId);
     }
 }
+
+// Resolve the only event Artist function call when called internally, msg.sender address changes to contract address
