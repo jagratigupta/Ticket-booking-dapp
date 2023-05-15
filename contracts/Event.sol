@@ -11,7 +11,7 @@ contract EventBooking {
     uint256 normalSeating = 50;
     uint256 executiveSeating = 30;
     uint256 premiumSeating = 20;
-    uint256 advancePayment = 1000000000000000;
+    uint256 advancePayment = 10000000000000;
 
     enum SeatType {
         NORMAL,
@@ -116,7 +116,8 @@ contract EventBooking {
             _premiumSeatPrice > _executiveSeatPrice,
             "Premium Seat price must be greater than Executive Seat price"
         );
-
+        console.log("Start Time: ", _startTime);
+        console.log("Block Timestamp: ", block.timestamp);
         require(
             _startTime > block.timestamp,
             "Start time must be in the future"
@@ -164,9 +165,9 @@ contract EventBooking {
         onlyEventArtist(_eventId)
         onlyActiveEvent(_eventId)
     {
-        events[_eventId].canceled = true;
         uint256 timeUntilEvent = calculateTimeUntilEvent(_eventId);
-
+        require(timeUntilEvent != 0, "Event has already started");
+        events[_eventId].canceled = true;
         // Determine the cancellation charge based on the time until the event
         uint256 cancellationCharge;
         if (timeUntilEvent >= 7 days) {
@@ -180,8 +181,9 @@ contract EventBooking {
         }
 
         // Calculate the remaining advance that can be refunded
-        // uint256 refundAmount = advancePayment - cancellationCharge;
-
+        uint256 refundAmount = advancePayment - cancellationCharge;
+        console.log("Cancellation Charge: ", cancellationCharge);
+        console.log("Refund Amount: ", refundAmount);
         // address payable artist = payable(events[_eventId].artist);
         // artist.transfer(refundAmount);
     }
@@ -269,19 +271,16 @@ contract EventBooking {
         uint256 _ticketId,
         address payable _to,
         uint256 amount
-    ) external payable {
-        console.log("Seat Owner: ", ticketERC721.ownerOf(_ticketId));
+    ) external {
+        // console.log("Seat Owner: ", ticketERC721.ownerOf(_ticketId));
         console.log("msg.sender: ", msg.sender);
         require(
-            ticketERC721.ownerOf(_ticketId) == msg.sender,
+            seatBuyers[_eventId][_ticketId].buyer == msg.sender,
             "Caller is not the owner of the ticket"
         );
 
         console.log("Transferring to: ", _to);
-        require(
-            ticketERC721.ownerOf(_ticketId) != _to,
-            "Cannot transfer ticket to self"
-        );
+        require(msg.sender != _to, "Cannot transfer ticket to self");
 
         require(
             !events[_eventId].canceled,
@@ -314,7 +313,13 @@ contract EventBooking {
     // Method to mark attendance for a ticket on the day of the event
     function markAttendance(uint256 _eventId, uint256 _ticketId) external {
         require(
-            ticketERC721.ownerOf(_ticketId) == msg.sender,
+            block.timestamp > events[_eventId].startTime &&
+                block.timestamp < events[_eventId].endTime,
+            "Attendance cannot be marked before event start or after event End"
+        );
+
+        require(
+            seatBuyers[_eventId][_ticketId].buyer == msg.sender,
             "Caller is not the owner of the ticket"
         );
 
