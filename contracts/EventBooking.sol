@@ -68,10 +68,10 @@ contract EventBooking {
             events[_eventId].artist,
             _eventId
         );
-        // require(
-        //     events[_eventId].artist == msg.sender,
-        //     "Caller is not event artist"
-        // );
+        require(
+            events[_eventId].artist == msg.sender,
+            "Caller is not event artist"
+        );
         _;
     }
 
@@ -140,18 +140,14 @@ contract EventBooking {
             artist: msg.sender
         });
 
-        this.setTicketPrice(eventCount, SeatType.NORMAL, _normalSeatPrice);
-        this.setTicketPrice(
-            eventCount,
-            SeatType.EXECUTIVE,
-            _executiveSeatPrice
-        );
-        this.setTicketPrice(eventCount, SeatType.PREMIUM, _premiumSeatPrice);
+        eventTicketPrice[eventCount][SeatType.NORMAL] = _normalSeatPrice;
+        eventTicketPrice[eventCount][SeatType.EXECUTIVE] = _executiveSeatPrice;
+        eventTicketPrice[eventCount][SeatType.PREMIUM] = _premiumSeatPrice;
         // theatreOwner.transfer(msg.value);
         // ticketERC721.safeMint(msg.sender, eventCount);
     }
 
-    function setTicketPrice(
+    function updateTicketPrice(
         uint256 _eventId,
         SeatType _seatType,
         uint256 _price
@@ -335,5 +331,3 @@ contract EventBooking {
         emit AttendanceMarked(msg.sender, _eventId, _ticketId);
     }
 }
-
-// Resolve the only event Artist function call when called internally, msg.sender address changes to contract address
